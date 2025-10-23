@@ -2,32 +2,52 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>F1 Gestión Estratégica</title>
+    <title>Gestión F1</title>
     <style>
-        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
-        h1 { color: #cc0000; } /* Color F1 */
-        .dia { font-size: 2em; margin: 20px; }
-        .boton { 
-            background-color: #008cba; 
-            color: white; 
-            padding: 15px 32px; 
-            text-align: center; 
-            text-decoration: none; 
-            display: inline-block; 
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-        }
+        body { font-family: sans-serif; margin: 20px; }
+        h1 { color: #cc0000; text-align: center; }
+        .dia { font-size: 1.5em; margin-bottom: 30px; text-align: center; }
+        .boton { background-color: #008cba; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; border: none; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
     </style>
 </head>
 <body>
     <h1>Director, hemos vuelto a la fábrica para el día {{ dia_actual }}.</h1>
-    <p class="dia">Día Actual de Pretemporada: <strong>{{ dia_actual }}</strong></p>
+    <div class="dia">
+        Día Actual de Pretemporada: <strong>{{ dia_actual }}</strong>
+        <br><br>
+        <a href="/avanzar" class="boton">Avanzar 1 Día</a>
+    </div>
 
-    <a href="/avanzar" class="boton">
-        Avanzar 1 Día (1 minuto real)
-    </a>
+    <h2>Componentes del Coche (Investigación y Desarrollo)</h2>
 
-    <p style="margin-top: 50px;">(El juego aún no está implementado, pero el tiempo corre.)</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Componente</th>
+                <th>Nivel R&D</th>
+                <th>Coste Base (€)</th>
+                <th>Rendimiento (%)</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {# Bucle de Jinja para mostrar cada componente que pasamos desde app.py #}
+            {% for componente in componentes %}
+            <tr>
+                <td>{{ componente.nombre }}</td>
+                <td>{{ componente.nivel_rd }}</td>
+                {# Usamos int y round para que los números se vean limpios #}
+                <td>{{ componente.coste | int }} €</td>
+                <td>{{ (componente.rendimiento_base * 100) | round(1) }}%</td>
+                <td><a href="#" style="color: #cc0000;">Iniciar R&D</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p style="margin-top: 50px;">(Pronto podremos iniciar los proyectos de investigación.)</p>
 </body>
 </html>
