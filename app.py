@@ -36,15 +36,22 @@ def check_player_id():
 
     # 5.2. Asegurar que la tabla 'jugadores' existe
     if not db["jugadores"].exists():
-        db["jugadores"].create({"id": str, "dia": int}, pk="id")
+        db["jugadores"].create({
+            "id": str, 
+            "dia": int,
+            "dinero": int, # <--- ¡Añadir!
+            "proyecto_activo": str, # <--- ¡Añadir!
+            "dia_finalizacion_rd": int # <--- ¡Añadir!
+        }, pk="id")
 
     # 5.3. Insertar/Ignorar jugador (para garantizar que existe y darle dinero inicial)
     db["jugadores"].insert({
         "id": player_id,
         "dia": 1,
         "dinero": 10000, # <-- DINERO INICIAL
-        "proyecto_activo": None # <-- Proyecto en marcha (será el nombre del componente o None)
-    }, pk="id", ignore=True)
+        "proyecto_activo": None, # <-- Proyecto en marcha
+        "dia_finalizacion_rd": None # <-- Día en que termina el proyecto
+    }, pk="id", ignore=True, alter=True) # <-- ¡ALTER=TRUE AÑADIDO AQUÍ!
 
     # 5.4. Asegurar que la tabla 'componentes' existe y está inicializada
     if not db["componentes"].exists():
