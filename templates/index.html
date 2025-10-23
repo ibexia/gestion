@@ -21,7 +21,7 @@
     <h1>Director, hemos vuelto a la fábrica para el día {{ dia_actual }}.</h1>
 
     <div class="info-box">
-        Dinero Disponible: <strong>{{ dinero_actual | int }} €</strong>
+        Dinero Disponible: <strong>{{ player_state.dinero | int }} €</strong>
         <br>
         Proyecto I+D Activo: 
         {% if proyecto_activo %}
