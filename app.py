@@ -269,6 +269,14 @@ def bienvenida():
                            escuderia_nombre="Phoenix Racing",
                            fecha_inicio="1 de Diciembre de 2025")
 
+# 10. Nueva ruta para resetear la sesión
+@app.route('/reset')
+def reset_session():
+    from flask import session, flash, redirect, url_for # Asegúrate de importar esto si no está al inicio
+    session.pop('player_id', None)
+    flash("Sesión de jugador reseteada. Comienza un nuevo juego.")
+    return redirect(url_for('bienvenida'))                           
+
 
 if __name__ == '__main__':
     app.run(debug=True)
