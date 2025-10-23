@@ -65,7 +65,7 @@
                     {# Lógica del botón: ¿Podemos iniciar I+D? #}
                     {% if proyecto_activo %}
                         <span class="boton-desactivado">I+D EN CURSO</span>
-                    {% elif dinero_actual < coste_proximo %}
+                    {% elif player_state.dinero < coste_proximo %}
                         <span class="boton-desactivado">FONDOS INSUFICIENTES</span>
                     {% else %}
                         <a href="/iniciar_rd/{{ componente.nombre }}" class="boton-rd">INICIAR R&D (5 DÍAS)</a>
