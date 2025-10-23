@@ -83,15 +83,15 @@ def index():
 
     player_state = db["jugadores"].get(player_id) 
 
-    componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id])) # <-- Usando la corrección del Paso 32
+    componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
 
-    # Pasamos el día, dinero y componentes a la plantilla HTML
+    # AÑADIR player_state completo aquí
     return render_template('index.html', 
                            dia_actual=player_state['dia'], 
                            dinero_actual=player_state['dinero'], 
                            proyecto_activo=player_state['proyecto_activo'],
-                           componentes=componentes)
-
+                           componentes=componentes,
+                           player_state=player_state) # <--- ¡ESTO ES LO NUEVO Y CLAVE!
 
 # 7. Ruta para avanzar el tiempo (y guardar)
 @app.route('/avanzar')
