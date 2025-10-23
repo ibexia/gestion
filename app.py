@@ -201,15 +201,16 @@ def carrera():
     # 5. Actualizar estado del jugador (dinero, y avanzar al siguiente día/fase)
     db["jugadores"].update(player_id, {
         "dinero": player_state['dinero'] + premio_dinero,
-        "dia": player_state['dia'] + 1 # Avanzamos el día al finalizar
+        "dia": player_state['dia'] + 1 # <--- ¡Esto es el problema! Pasa del día 10 al 11.
     })
 
-    # 6. Mostrar resultado de la carrera (devolvemos el resultado en lugar de redirigir)
+    # 6. Mostrar resultado de la carrera
     return render_template('carrera.html', 
-                           posicion=posicion_simulada, 
-                           premio=premio_dinero, 
-                           rendimiento=round(factor_mejora, 2))
-
+                        posicion=posicion_simulada, 
+                        premio=premio_dinero, 
+                        rendimiento=round(factor_mejora, 2),
+                        player_state=player_state, # <--- ¡CLAVE! Pasar el diccionario completo
+                        dia_actual=player_state['dia']) # <--- Y el día actual por si la plantilla lo necesita
 # Esta línea es solo para pruebas locales (Codespaces)
 if __name__ == '__main__':
     app.run(debug=True)
