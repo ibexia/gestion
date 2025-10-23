@@ -2,116 +2,45 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Bienvenido - Configuración de la Escudería</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bienvenido - F1 Manager</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        body { 
-            font-family: sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            background-color: #f4f4f4; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh;
-        }
-        .contenedor {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
-            text-align: center;
-        }
-        h1 {
-            color: #cc0000;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-        p {
-            color: #555;
-            line-height: 1.6;
-            text-align: left;
-            margin-bottom: 20px;
-        }
-        form {
-            margin-top: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        input[type="text"] {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        button {
-            background-color: #008cba;
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 18px;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #005f7d;
-        }
-        .info {
-            background-color: #e0f7fa;
-            border-left: 5px solid #00bcd4;
-            padding: 15px;
-            margin-bottom: 25px;
-            text-align: left;
-        }
-        .info strong {
-            color: #008cba;
-        }
+        body { font-family: 'Arial', sans-serif; background-color: #3d3d3d; color: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .welcome-card { background-color: #2a2a2e; padding: 40px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5); width: 100%; max-width: 450px; text-align: center; border-top: 5px solid #e10600; }
+        .welcome-card h1 { color: #e10600; font-size: 2.5rem; margin-bottom: 5px; }
+        .welcome-card h2 { color: #f4f7f6; font-size: 1.5rem; margin-bottom: 30px; }
+        .welcome-card p { margin-bottom: 20px; line-height: 1.6; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #ccc; }
+        .form-group input[type="text"] { width: 100%; padding: 12px; border: 1px solid #555; border-radius: 6px; background-color: #444; color: #fff; box-sizing: border-box; font-size: 1rem; }
+        .btn-start { width: 100%; padding: 15px; border: none; border-radius: 6px; background-color: #e10600; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: background-color 0.3s; }
+        .btn-start:hover { background-color: #ff2d2d; }
+        .alert-flash { padding: 15px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; background-color: #ffe0b2; color: #856404; border: 1px solid #ffcc80; }
     </style>
 </head>
 <body>
-    <div class="contenedor">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo de Escudería" style="width: 100px; margin-bottom: 20px;">
-        <h1>¡Bienvenido a {{ escuderia_nombre }}!</h1>
-
-        <div class="info">
-            <strong>Fecha de Inicio:</strong> {{ fecha_inicio }}<br>
-            <strong>Escudería:</strong> {{ escuderia_nombre }}
-        </div>
-
-        <p>
-            La directiva te ha contratado como el nuevo Director de Equipo de **{{ escuderia_nombre }}**. 
-            Acabas de finalizar la pretemporada y, aunque los resultados iniciales no han sido los esperados (terminasteis en la posición 15 en la carrera de prueba), 
-            la junta confía en tu visión estratégica para relanzar al equipo a la cima.
-        </p>
-        <p>
-            Tu misión comienza ahora. Tienes hasta el 1 de Abril de 2026 para mejorar el rendimiento de los componentes del coche con un presupuesto limitado.
-        </p>
-
-        <form method="POST">
-            <label for="director_name" style="text-align: left; font-weight: bold;">
-                Introduce tu nombre de Director:
-            </label>
-            <input type="text" id="director_name" name="director_name" required placeholder="Ej: Adrian Newey o Enzo Ferrari">
-
-            <button type="submit">
-                COMENZAR LA GESTIÓN
-            </button>
-        </form>
+    <div class="welcome-card">
+        <h1>Phoenix Racing</h1>
+        <h2>F1 Team Manager 2026</h2>
 
         {% with messages = get_flashed_messages() %}
             {% if messages %}
-                <ul class="flashes" style="list-style: none; padding: 10px; background: #ffdddd; border: 1px solid #ffaaaa; margin-top: 15px; color: #cc0000; text-align: left;">
-                    {% for message in messages %}
-                        <li>{{ message }}</li>
-                    {% endfor %}
-                </ul>
+                {% for message in messages %}
+                    <div class="alert-flash">{{ message }}</div>
+                {% endfor %}
             {% endif %}
         {% endwith %}
 
+        <p>Estás a cargo de **{{ escuderia_nombre }}**, una escudería con un gran potencial, pero bajos fondos. Tu misión comienza el **{{ fecha_inicio }}**.</p>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="director_name">Nombre del Director de Equipo:</label>
+                <input type="text" id="director_name" name="director_name" required>
+            </div>
+            <button type="submit" class="btn-start">Comenzar la Gestión</button>
+        </form>
     </div>
 </body>
 </html>

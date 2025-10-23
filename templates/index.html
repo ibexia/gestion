@@ -2,78 +2,126 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gestión F1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Manager - {{ escuderia_nombre }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        /* (Deja el estilo CSS igual que antes) */
-        body { font-family: sans-serif; margin: 20px; }
-        h1 { color: #cc0000; text-align: center; }
-        .dia { font-size: 1.5em; margin-bottom: 30px; text-align: center; }
-        .info-box { background-color: #f0f0f0; padding: 10px; margin-bottom: 20px; text-align: center; }
-        .boton { background-color: #008cba; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; border: none; cursor: pointer; }
-        .boton-rd { background-color: #4CAF50; color: white; padding: 5px 10px; text-decoration: none; border: none; cursor: pointer; }
-        .boton-desactivado { background-color: #ccc; color: #666; cursor: not-allowed; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        body { font-family: 'Arial', sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 20px; background-color: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #e0e0e0; padding-bottom: 15px; margin-bottom: 25px; }
+        .header h1 { color: #e10600; font-size: 2.2rem; margin: 0; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-box { background-color: #f0f0f0; padding: 15px; border-radius: 8px; text-align: center; border-left: 5px solid #e10600; }
+        .stat-box h3 { margin: 0 0 5px 0; font-size: 1rem; color: #555; }
+        .stat-box p { font-size: 1.8rem; font-weight: bold; color: #333; }
+        .alert-flash { padding: 15px; margin-bottom: 20px; border-radius: 8px; font-weight: bold; }
+        .alert-flash.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-flash.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-flash { background-color: #ffe0b2; color: #e65100; border: 1px solid #ffcc80; } /* Default flash */
+        .table-container { margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; background-color: #fafafa; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #e10600; color: white; font-weight: 600; text-transform: uppercase; }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: bold; transition: background-color 0.3s; display: inline-block; text-align: center; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-primary:hover { background-color: #0056b3; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-danger:hover { background-color: #c82333; }
+        .rd-info { background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; border: 1px solid #ffeeba; margin-top: 15px; }
     </style>
 </head>
 <body>
-    <h1>Director, hemos vuelto a la fábrica para el día {{ dia_actual }}.</h1>
+    <div class="container">
+        <div class="header">
+            <h1>{{ escuderia_nombre }} - Director: {{ player_state.director_name }}</h1>
+            <a href="{{ url_for('reset_session') }}" class="btn btn-danger">Reiniciar Juego</a>
+        </div>
 
-    <div class="info-box">
-        Dinero Disponible: <strong>{{ player_state.dinero | int }} €</strong>
-        <br>
-        Proyecto I+D Activo: 
-        {% if proyecto_activo %}
-            <strong style="color: #cc0000;">{{ proyecto_activo }} (Finaliza Día {{ player_state.dia_finalizacion_rd }})</strong>
-        {% else %}
-            <strong style="color: #4CAF50;">Ninguno</strong>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert-flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <h2>Estado Global</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <h3>Día de Juego</h3>
+                <p>Día {{ game_day_number }}</p>
+            </div>
+            <div class="stat-box">
+                <h3>Fecha Actual</h3>
+                <p>{{ current_game_date }}</p>
+            </div>
+            <div class="stat-box">
+                <h3>Dinero Restante</h3>
+                <p>${{ "{:,.0f}".format(player_state.dinero) }}</p>
+            </div>
+            <div class="stat-box">
+                <h3>Próxima Carrera</h3>
+                <p>{{ proxima_carrera }} ({{ fecha_proxima_carrera }})</p>
+            </div>
+        </div>
+
+        {% if days_to_season > 0 %}
+        <div class="alert-flash">
+            **ATENCIÓN:** Quedan **{{ days_to_season }}** días para el inicio de la temporada 2026. ¡Optimiza tus I+D!
+        </div>
+        {% endif %}
+        
+        {% if player_state.proyecto_activo %}
+            <div class="rd-info">
+                **PROYECTO I+D ACTIVO:** {{ player_state.proyecto_activo }} (Finaliza Día {{ player_state.dia_finalizacion_rd }}).
+            </div>
+        {% endif %}
+
+        <h2>Investigación y Desarrollo (I+D)</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Componente</th>
+                        <th>Nivel Actual</th>
+                        <th>Rendimiento Base</th>
+                        <th>Próximo Coste I+D</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for componente in componentes %}
+                    <tr>
+                        <td>{{ componente.nombre }}</td>
+                        <td>Nivel {{ componente.nivel_rd }}</td>
+                        <td>{{ "%.2f"|format(componente.rendimiento_base + (componente.nivel_rd * 0.1)) }}</td>
+                        
+                        {# CLAVE: Aquí se usa la variable 'coste_mejora' en lugar de 'coste' #}
+                        {% set coste_proximo = (componente.coste_mejora * componente.nivel_rd) | int %}
+                        
+                        <td>${{ "{:,.0f}".format(coste_proximo) }}</td>
+                        <td>
+                            {% if player_state.proyecto_activo %}
+                                <span class="btn btn-primary" style="opacity: 0.5; cursor: not-allowed;">I+D en curso</span>
+                            {% elif player_state.dinero < coste_proximo %}
+                                <span class="btn btn-primary" style="opacity: 0.5; cursor: not-allowed;">Fondos Insuficientes</span>
+                            {% else %}
+                                <a href="{{ url_for('iniciar_rd', nombre_componente=componente.nombre) }}" class="btn btn-primary">Comenzar Gestión I+D</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if game_day_number >= 10 %}
+            <h2 style="margin-top: 40px;">Acción de Carrera</h2>
+            <div style="text-align: center;">
+                <a href="{{ url_for('carrera') }}" class="btn btn-primary" style="font-size: 1.2rem; padding: 12px 25px;">Simular Carrera</a>
+            </div>
         {% endif %}
     </div>
 
-    <div class="dia">
-        Día Actual de Pretemporada: <strong>{{ dia_actual }}</strong>
-        <br><br>
-        {% if dia_actual == 10 %}
-            <a href="/carrera" class="boton" style="background-color: #cc0000;">SIMULAR CARRERA (DÍA DE LA VERDAD)</a>
-        {% else %}
-            <a href="/avanzar" class="boton">Avanzar 1 Día</a>
-        {% endif %}
-    </div>
-
-    <h2>Componentes del Coche (Investigación y Desarrollo)</h2>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Componente</th>
-                <th>Nivel R&D</th>
-                <th>Coste Próximo Nivel (€)</th>
-                <th>Rendimiento (%)</th>
-                <th>Acción</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for componente in componentes %}
-            {% set coste_proximo = (componente.coste * componente.nivel_rd) | int %}
-            <tr>
-                <td>{{ componente.nombre }}</td>
-                <td>Nivel {{ componente.nivel_rd }}</td>
-                <td>{{ coste_proximo }} €</td>
-                <td>{{ (componente.rendimiento_base * 100) | round(1) }}%</td>
-                <td>
-                    {# Lógica del botón: ¿Podemos iniciar I+D? #}
-                    {% if proyecto_activo %}
-                        <span class="boton-desactivado">I+D EN CURSO</span>
-                    {% elif player_state.dinero < coste_proximo %}
-                        <span class="boton-desactivado">FONDOS INSUFICIENTES</span>
-                    {% else %}
-                        <a href="/iniciar_rd/{{ componente.nombre }}" class="boton-rd">INICIAR R&D (5 DÍAS)</a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
 </body>
 </html>
