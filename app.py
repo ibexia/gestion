@@ -55,7 +55,7 @@ def check_player_id():
         }, pk=("jugador_id", "nombre")) # Clave primaria compuesta por Jugador + Nombre
 
     # 5.5. Inicializar componentes solo si el jugador no tiene ninguno aún
-    if list(db["componentes"].rows_where("jugador_id = ?", params=[player_id])) == []:
+    if list(db["componentes"].rows_where("jugador_id = ?", [player_id])) == []:
          # Componentes base de F1
         componentes_iniciales = [
             {"jugador_id": player_id, "nombre": "Motor", "nivel_rd": 1, "coste": 500, "rendimiento_base": 1.0},
@@ -75,7 +75,7 @@ def index():
     player_state = db["jugadores"].get(player_id) 
 
     # Cargar los componentes asociados a ESTE jugador
-    componentes = list(db["componentes"].rows_where("jugador_id = ?", params=[player_id]))
+    componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
 
     # Pasamos el día y los componentes a la plantilla HTML
     return render_template('index.html', dia_actual=player_state['dia'], componentes=componentes)
