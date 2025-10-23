@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>F1 Gestión Estratégica</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+        h1 { color: #cc0000; } /* Color F1 */
+        .dia { font-size: 2em; margin: 20px; }
+        .boton { 
+            background-color: #008cba; 
+            color: white; 
+            padding: 15px 32px; 
+            text-align: center; 
+            text-decoration: none; 
+            display: inline-block; 
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bienvenido, Director de Equipo.</h1>
+    <p class="dia">Día Actual de Pretemporada: <strong>{{ dia_actual }}</strong></p>
+
+    <a href="/avanzar" class="boton">
+        Avanzar 1 Día (1 minuto real)
+    </a>
+
+    <p style="margin-top: 50px;">(El juego aún no está implementado, pero el tiempo corre.)</p>
+</body>
+</html>
