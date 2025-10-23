@@ -4,10 +4,14 @@
     <meta charset="UTF-8">
     <title>Gestión F1</title>
     <style>
+        /* (Deja el estilo CSS igual que antes) */
         body { font-family: sans-serif; margin: 20px; }
         h1 { color: #cc0000; text-align: center; }
         .dia { font-size: 1.5em; margin-bottom: 30px; text-align: center; }
+        .info-box { background-color: #f0f0f0; padding: 10px; margin-bottom: 20px; text-align: center; }
         .boton { background-color: #008cba; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; border: none; cursor: pointer; }
+        .boton-rd { background-color: #4CAF50; color: white; padding: 5px 10px; text-decoration: none; border: none; cursor: pointer; }
+        .boton-desactivado { background-color: #ccc; color: #666; cursor: not-allowed; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
@@ -15,6 +19,18 @@
 </head>
 <body>
     <h1>Director, hemos vuelto a la fábrica para el día {{ dia_actual }}.</h1>
+
+    <div class="info-box">
+        Dinero Disponible: <strong>{{ dinero_actual | int }} €</strong>
+        <br>
+        Proyecto I+D Activo: 
+        {% if proyecto_activo %}
+            <strong style="color: #cc0000;">{{ proyecto_activo }} (Finaliza Día {{ player_state.dia_finalizacion_rd }})</strong>
+        {% else %}
+            <strong style="color: #4CAF50;">Ninguno</strong>
+        {% endif %}
+    </div>
+
     <div class="dia">
         Día Actual de Pretemporada: <strong>{{ dia_actual }}</strong>
         <br><br>
@@ -28,26 +44,32 @@
             <tr>
                 <th>Componente</th>
                 <th>Nivel R&D</th>
-                <th>Coste Base (€)</th>
+                <th>Coste Próximo Nivel (€)</th>
                 <th>Rendimiento (%)</th>
                 <th>Acción</th>
             </tr>
         </thead>
         <tbody>
-            {# Bucle de Jinja para mostrar cada componente que pasamos desde app.py #}
             {% for componente in componentes %}
+            {% set coste_proximo = (componente.coste * componente.nivel_rd) | int %}
             <tr>
                 <td>{{ componente.nombre }}</td>
-                <td>{{ componente.nivel_rd }}</td>
-                {# Usamos int y round para que los números se vean limpios #}
-                <td>{{ componente.coste | int }} €</td>
+                <td>Nivel {{ componente.nivel_rd }}</td>
+                <td>{{ coste_proximo }} €</td>
                 <td>{{ (componente.rendimiento_base * 100) | round(1) }}%</td>
-                <td><a href="#" style="color: #cc0000;">Iniciar R&D</a></td>
+                <td>
+                    {# Lógica del botón: ¿Podemos iniciar I+D? #}
+                    {% if proyecto_activo %}
+                        <span class="boton-desactivado">I+D EN CURSO</span>
+                    {% elif dinero_actual < coste_proximo %}
+                        <span class="boton-desactivado">FONDOS INSUFICIENTES</span>
+                    {% else %}
+                        <a href="/iniciar_rd/{{ componente.nombre }}" class="boton-rd">INICIAR R&D (5 DÍAS)</a>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-
-    <p style="margin-top: 50px;">(Pronto podremos iniciar los proyectos de investigación.)</p>
 </body>
 </html>

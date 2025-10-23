@@ -38,10 +38,12 @@ def check_player_id():
     if not db["jugadores"].exists():
         db["jugadores"].create({"id": str, "dia": int}, pk="id")
 
-    # 5.3. Insertar/Ignorar jugador (para garantizar que existe)
+    # 5.3. Insertar/Ignorar jugador (para garantizar que existe y darle dinero inicial)
     db["jugadores"].insert({
         "id": player_id,
-        "dia": 1
+        "dia": 1,
+        "dinero": 10000, # <-- DINERO INICIAL
+        "proyecto_activo": None # <-- Proyecto en marcha (será el nombre del componente o None)
     }, pk="id", ignore=True)
 
     # 5.4. Asegurar que la tabla 'componentes' existe y está inicializada
@@ -74,11 +76,14 @@ def index():
 
     player_state = db["jugadores"].get(player_id) 
 
-    # Cargar los componentes asociados a ESTE jugador
-    componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
+    componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id])) # <-- Usando la corrección del Paso 32
 
-    # Pasamos el día y los componentes a la plantilla HTML
-    return render_template('index.html', dia_actual=player_state['dia'], componentes=componentes)
+    # Pasamos el día, dinero y componentes a la plantilla HTML
+    return render_template('index.html', 
+                           dia_actual=player_state['dia'], 
+                           dinero_actual=player_state['dinero'], 
+                           proyecto_activo=player_state['proyecto_activo'],
+                           componentes=componentes)
 
 
 # 7. Ruta para avanzar el tiempo (y guardar)
@@ -87,14 +92,65 @@ def avanzar_dia():
     db = get_db()
     player_id = session['player_id']
 
-    # Cargamos el estado, incrementamos el día y guardamos
+    # 1. Obtener estado actual
     player_state = db["jugadores"].get(player_id)
     nuevo_dia = player_state['dia'] + 1
 
-    # Guardamos el nuevo día en la base de datos (clave: player_id)
-    db["jugadores"].update(player_id, {"dia": nuevo_dia})
+    # 2. Comprobar si hay un proyecto activo y si ha finalizado
+    proyecto_activo = player_state.get('proyecto_activo') # Usa .get() para evitar KeyError
+    dia_finalizacion = player_state.get('dia_finalizacion_rd')
 
-    # Redirigimos al usuario de vuelta a la página principal (/)
+    if proyecto_activo and dia_finalizacion is not None and nuevo_dia >= dia_finalizacion:
+        # ¡PROYECTO FINALIZADO!
+
+        # 2.1. Subir nivel del componente
+        componente = db["componentes"].get((player_id, proyecto_activo))
+        db["componentes"].update((player_id, proyecto_activo), {
+            "nivel_rd": componente['nivel_rd'] + 1,
+        })
+
+        # 2.2. Limpiar variables del proyecto
+        db["jugadores"].update(player_id, {
+            "dia": nuevo_dia,
+            "proyecto_activo": None,
+            "dia_finalizacion_rd": None
+        })
+    else:
+        # 3. Solo avanzamos el día (el proyecto sigue en marcha o no hay proyecto)
+        db["jugadores"].update(player_id, {"dia": nuevo_dia})
+
+    return redirect(url_for('index'))
+
+# 8. Ruta para iniciar un proyecto de I+D
+@app.route('/iniciar_rd/<nombre_componente>')
+def iniciar_rd(nombre_componente):
+    db = get_db()
+    player_id = session['player_id']
+
+    player_state = db["jugadores"].get(player_id)
+
+    # 1. Comprobación de proyecto activo
+    if player_state['proyecto_activo'] is not None:
+        # Ya hay un proyecto en marcha
+        return redirect(url_for('index')) 
+
+    # 2. Obtener datos del componente
+    componente = db["componentes"].get((player_id, nombre_componente))
+    coste_rd = componente['coste'] * componente['nivel_rd'] # Coste aumenta con el nivel
+
+    # 3. Comprobación de fondos
+    if player_state['dinero'] >= coste_rd:
+        # 4. Iniciar el proyecto: se establece el componente y se calcula la fecha de finalización
+        # Suponemos 5 días para un proyecto, luego se ajustará
+        dias_proyecto = 5
+        dia_finalizacion = player_state['dia'] + dias_proyecto
+
+        db["jugadores"].update(player_id, {
+            "dinero": player_state['dinero'] - coste_rd,
+            "proyecto_activo": nombre_componente,
+            "dia_finalizacion_rd": dia_finalizacion # Guardamos el día en que terminará
+        })
+
     return redirect(url_for('index'))
 
 # Esta línea es solo para pruebas locales (Codespaces)
