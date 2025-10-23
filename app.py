@@ -269,13 +269,21 @@ def bienvenida():
                            escuderia_nombre="Phoenix Racing",
                            fecha_inicio="1 de Diciembre de 2025")
 
-# 10. Nueva ruta para resetear la sesión
+# 10. Nueva ruta para resetear la sesión y borrar la DB temporalmente
 @app.route('/reset')
 def reset_session():
-    from flask import session, flash, redirect, url_for # Asegúrate de importar esto si no está al inicio
+    from flask import session, flash, redirect, url_for 
+    db = get_db()
+
+    # --- NUEVOS PASOS AÑADIDOS ---
+    if db["jugadores"].exists():
+        db["jugadores"].drop()
+
     session.pop('player_id', None)
-    flash("Sesión de jugador reseteada. Comienza un nuevo juego.")
-    return redirect(url_for('bienvenida'))                           
+    # -----------------------------
+
+    flash("Sesión de jugador y base de datos reseteadas. Comienza un nuevo juego.")
+    return redirect(url_for('bienvenida'))                         
 
 
 if __name__ == '__main__':
