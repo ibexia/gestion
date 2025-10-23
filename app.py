@@ -1,8 +1,9 @@
 from flask import Flask, render_template, redirect, url_for, session, g, flash, request
 from datetime import datetime, timedelta 
 import sqlite_utils
+from sqlite_utils.db import NotFoundError 
 import uuid
-import time # Necesario para la lógica de tiempo real
+import time 
 import os
 
 # 1. Inicialización de la aplicación y Clave Secreta
@@ -25,7 +26,7 @@ def close_db(e=None):
     if db is not None:
         db.close()
 
-# --- CONSTANTES GLOBALES DE TIEMPO (¡AÑADIDO!) ---
+# --- CONSTANTES GLOBALES DE TIEMPO ---
 START_DATE = datetime(2025, 12, 1, 0, 0, 0) # 1 de Diciembre de 2025, 00:00:00
 SEASON_START_DATE = datetime(2026, 4, 1, 0, 0, 0) # 1 de Abril de 2026
 # ----------------------------------------------------
@@ -36,12 +37,19 @@ SEASON_START_DATE = datetime(2026, 4, 1, 0, 0, 0) # 1 de Abril de 2026
 def index():
     db = get_db()
     player_id = session.get('player_id')
+    player_state = None 
 
-    # CLAVE: Si no hay jugador, redirige a Bienvenida
-    if not player_id or not db["jugadores"].exists() or not db["jugadores"].get(player_id):
+    # Lógica de seguridad para evitar el error 500
+    if player_id and db["jugadores"].exists():
+        try:
+            player_state = db["jugadores"].get(player_id)
+        except NotFoundError:
+            session.pop('player_id', None) 
+            player_state = None 
+
+    # CLAVE: Si no hay jugador VÁLIDO (o la sesión fue limpiada), redirige a Bienvenida
+    if not player_state:
         return redirect(url_for('bienvenida'))
-
-    player_state = db["jugadores"].get(player_id) 
 
     # --- Lógica de cálculo de tiempo REAL-TIME (4x) ---
     real_time_elapsed = time.time() - player_state['start_time_rt']
@@ -53,7 +61,7 @@ def index():
     if player_state['dia'] != game_day_number:
         db["jugadores"].update(player_id, {"dia": game_day_number})
         player_state['dia'] = game_day_number 
-        db.commit()
+        # ELIMINADO: db.commit() - No es necesario en sqlite-utils
         
     # --- Lógica de Hitos Importantes (TAREA 5) ---
     days_to_season = max(0, (SEASON_START_DATE - current_game_date).days)
@@ -72,6 +80,7 @@ def index():
     componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
     
     # Manejar la posible inexistencia de la tabla 'proyectos'
+    # Nota: Asegúrate de que 'proyectos' se crea antes de que un proyecto se inicie, si no existe.
     proyectos = list(db["proyectos"].rows_where("jugador_id = ?", [player_id])) if db.get("proyectos", {}).exists() else []
 
 
@@ -80,7 +89,7 @@ def index():
                             player_state=player_state,
                             componentes=componentes, 
                             proyectos=proyectos,
-                            start_timestamp=player_state['start_time_rt'], # Usado por JS
+                            start_timestamp=player_state['start_time_rt'], 
                             current_game_date=current_game_date.strftime("%d %B %Y"),
                             current_game_time=current_game_date.strftime("%H:%M:%S"),
                             game_day_number=game_day_number,
@@ -100,26 +109,22 @@ def iniciar_rd(nombre_componente):
 
     # 1. Comprobación de proyecto activo
     if player_state['proyecto_activo'] is not None:
-        # Ya hay un proyecto en marcha
         return redirect(url_for('index')) 
 
     # 2. Obtener datos del componente
-    # IMPORTANTE: Asumo que en la tabla 'componentes' ya existe 'coste' o lo cambiaste a 'coste_mejora'
     componente = db["componentes"].get((player_id, nombre_componente))
-    # Usamos coste_mejora que definiste en /bienvenida
     coste_rd = componente['coste_mejora'] * componente['nivel_rd'] 
 
     # 3. Comprobación de fondos
     if player_state['dinero'] >= coste_rd:
-        # 4. Iniciar el proyecto: se establece el componente y se calcula la fecha de finalización
-        # Suponemos 5 días para un proyecto, luego se ajustará
+        # 4. Iniciar el proyecto
         dias_proyecto = 5
         dia_finalizacion = player_state['dia'] + dias_proyecto
 
         db["jugadores"].update(player_id, {
             "dinero": player_state['dinero'] - coste_rd,
             "proyecto_activo": nombre_componente,
-            "dia_finalizacion_rd": dia_finalizacion # Guardamos el día en que terminará
+            "dia_finalizacion_rd": dia_finalizacion 
         })
 
     return redirect(url_for('index'))
@@ -132,7 +137,6 @@ def carrera():
     player_state = db["jugadores"].get(player_id)
 
     # 1. Comprobación: Solo si es el Día 10
-    # NOTA: Esto se cambiará más adelante para usar la lógica de tiempo real de la Tarea 6
     if player_state['dia'] != 10:
         flash("La carrera solo puede simularse el Día 10.")
         return redirect(url_for('index'))
@@ -142,7 +146,6 @@ def carrera():
     rendimiento_total = 0
 
     for comp in componentes:
-        # Fórmula simple: Rendimiento Base + (Nivel * 0.1)
         rendimiento_total += comp['rendimiento_base'] + (comp['nivel_rd'] * 0.1)
 
     # 3. Simulación del Resultado (Ejemplo Simple)
@@ -154,14 +157,13 @@ def carrera():
     premio_dinero = 0
 
     if posicion_simulada <= 5:
-        premio_dinero = 5000 + (6 - posicion_simulada) * 1000 # Más dinero si queda mejor
+        premio_dinero = 5000 + (6 - posicion_simulada) * 1000 
     elif posicion_simulada <= 10:
         premio_dinero = 1000
 
-    # 5. Actualizar estado del jugador (solo dinero, el día se actualiza automáticamente)
+    # 5. Actualizar estado del jugador (solo dinero)
     db["jugadores"].update(player_id, {
         "dinero": player_state['dinero'] + premio_dinero,
-        # Ya NO se avanza el día aquí. El tiempo lo maneja la ruta '/'
     })
 
     # 6. Mostrar resultado de la carrera
@@ -184,15 +186,19 @@ def bienvenida():
             "id": str, 
             "dia": int,
             "dinero": int,
-            "director_name": str, # <-- Nuevo campo
-            "start_time_rt": float, # <-- Nuevo campo
+            "director_name": str, 
+            "start_time_rt": float, 
             "proyecto_activo": str, 
             "dia_finalizacion_rd": int
         }, pk="id")
         
     # Si ya hay un jugador VÁLIDO, redirigir a index
-    if player_id and db["jugadores"].get(player_id):
-        return redirect(url_for('index'))
+    try:
+        if player_id and db["jugadores"].get(player_id):
+            return redirect(url_for('index'))
+    except NotFoundError:
+        # Si el cookie es viejo, lo ignoramos y procedemos a crear uno nuevo
+        session.pop('player_id', None)
 
     if request.method == 'POST':
         director_name = request.form.get('director_name')
@@ -210,12 +216,12 @@ def bienvenida():
             "dinero": 100000,
             "dia": 1,
             "director_name": director_name,
-            "start_time_rt": time.time(), # Hora de inicio real
+            "start_time_rt": time.time(), 
             "proyecto_activo": None, 
             "dia_finalizacion_rd": None 
         }, pk="id")
 
-        # 3. Inicializar los componentes (CÓDIGO DEL PASO 37)
+        # 3. Inicializar los componentes 
         db["componentes"].create({
             "jugador_id": str,
             "nombre": str,
@@ -231,7 +237,7 @@ def bienvenida():
             {"jugador_id": new_player_id, "nombre": "Alerón Trasero", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
         ], replace=True)
 
-        db.commit()
+        # ELIMINADO: db.commit() - No es necesario y causaba el error 500
 
         flash(f"¡Bienvenido, Director {director_name}! ¡Es hora de relanzar Phoenix Racing!")
         return redirect(url_for('index'))
@@ -244,7 +250,6 @@ def bienvenida():
 # 10. Nueva ruta para resetear la sesión (Solo borra la sesión)
 @app.route('/reset')
 def reset_session():
-    # Asegúrate que estas importaciones no se repitan si ya están al inicio del archivo
     from flask import session, flash, redirect, url_for 
     
     session.pop('player_id', None)
