@@ -61,7 +61,6 @@ def index():
     if player_state['dia'] != game_day_number:
         db["jugadores"].update(player_id, {"dia": game_day_number})
         player_state['dia'] = game_day_number 
-        # ELIMINADO: db.commit() - No es necesario en sqlite-utils
         
     # --- Lógica de Hitos Importantes (TAREA 5) ---
     days_to_season = max(0, (SEASON_START_DATE - current_game_date).days)
@@ -80,7 +79,6 @@ def index():
     componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
     
     # Manejar la posible inexistencia de la tabla 'proyectos'
-    # CORREGIDO: Usamos db["proyectos"].exists() para verificar si la tabla existe.
     proyectos = list(db["proyectos"].rows_where("jugador_id = ?", [player_id])) if db["proyectos"].exists() else []
 
 
@@ -109,10 +107,14 @@ def iniciar_rd(nombre_componente):
 
     # 1. Comprobación de proyecto activo
     if player_state['proyecto_activo'] is not None:
+        flash("Ya tienes un proyecto de I+D en curso.")
         return redirect(url_for('index')) 
 
     # 2. Obtener datos del componente
     componente = db["componentes"].get((player_id, nombre_componente))
+    
+    # La próxima mejora cuesta el coste_mejora base multiplicado por el nivel actual.
+    # CORREGIDO: Usamos componente['coste_mejora']
     coste_rd = componente['coste_mejora'] * componente['nivel_rd'] 
 
     # 3. Comprobación de fondos
@@ -126,6 +128,27 @@ def iniciar_rd(nombre_componente):
             "proyecto_activo": nombre_componente,
             "dia_finalizacion_rd": dia_finalizacion 
         })
+        
+        # 5. Crear la tabla de proyectos si no existe y registrar el proyecto
+        if not db["proyectos"].exists():
+            db["proyectos"].create({
+                "jugador_id": str,
+                "nombre": str,
+                "dia_finalizacion": int,
+                "tipo": str, # 'RD'
+            }, pk=("jugador_id", "nombre"), ignore=True)
+
+        db["proyectos"].insert({
+            "jugador_id": player_id,
+            "nombre": nombre_componente,
+            "dia_finalizacion": dia_finalizacion,
+            "tipo": "RD",
+        }, replace=True)
+
+        flash(f"I+D para {nombre_componente} iniciado. Finaliza el día {dia_finalizacion}.")
+
+    else:
+        flash(f"No tienes suficiente dinero (${coste_rd}) para iniciar el I+D para {nombre_componente}.")
 
     return redirect(url_for('index'))
 
@@ -194,7 +217,8 @@ def bienvenida():
         
     # Si ya hay un jugador VÁLIDO, redirigir a index
     try:
-        if player_id and db["jugadores"].get(player_id):
+        # Necesitamos verificar si la tabla existe antes de intentar obtener algo de ella
+        if db["jugadores"].exists() and player_id and db["jugadores"].get(player_id):
             return redirect(url_for('index'))
     except NotFoundError:
         # Si el cookie es viejo, lo ignoramos y procedemos a crear uno nuevo
@@ -226,7 +250,7 @@ def bienvenida():
             "jugador_id": str,
             "nombre": str,
             "nivel_rd": int,
-            "coste_mejora": int,
+            "coste_mejora": int, # Aseguramos que el nombre es 'coste_mejora'
             "rendimiento_base": float
         }, pk=("jugador_id", "nombre"), ignore=True)
         
@@ -236,8 +260,6 @@ def bienvenida():
             {"jugador_id": new_player_id, "nombre": "Alerón Delantero", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
             {"jugador_id": new_player_id, "nombre": "Alerón Trasero", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
         ], replace=True)
-
-        # ELIMINADO: db.commit() - No es necesario y causaba el error 500
 
         flash(f"¡Bienvenido, Director {director_name}! ¡Es hora de relanzar Phoenix Racing!")
         return redirect(url_for('index'))
@@ -252,9 +274,13 @@ def bienvenida():
 def reset_session():
     from flask import session, flash, redirect, url_for 
     
+    # IMPORTANTE: Borrar también el archivo de la DB para un reinicio limpio
+    if os.path.exists(DATABASE_FILE):
+        os.remove(DATABASE_FILE)
+    
     session.pop('player_id', None)
     
-    flash("Sesión de jugador reseteada. Comienza un nuevo juego.")
+    flash("Sesión de jugador y base de datos reseteadas. Comienza un nuevo juego.")
     return redirect(url_for('bienvenida')) 
 
 if __name__ == '__main__':
