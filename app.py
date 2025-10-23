@@ -80,8 +80,8 @@ def index():
     componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
     
     # Manejar la posible inexistencia de la tabla 'proyectos'
-    # Nota: Asegúrate de que 'proyectos' se crea antes de que un proyecto se inicie, si no existe.
-    proyectos = list(db["proyectos"].rows_where("jugador_id = ?", [player_id])) if db.get("proyectos", {}).exists() else []
+    # CORREGIDO: Usamos db["proyectos"].exists() para verificar si la tabla existe.
+    proyectos = list(db["proyectos"].rows_where("jugador_id = ?", [player_id])) if db["proyectos"].exists() else []
 
 
     # Renderizar la página principal con los nuevos datos de tiempo.
