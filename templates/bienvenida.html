@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Bienvenido - Configuración de la Escudería</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { 
+            font-family: sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f4f4f4; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+        }
+        .contenedor {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            text-align: center;
+        }
+        h1 {
+            color: #cc0000;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #555;
+            line-height: 1.6;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        form {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #008cba;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #005f7d;
+        }
+        .info {
+            background-color: #e0f7fa;
+            border-left: 5px solid #00bcd4;
+            padding: 15px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        .info strong {
+            color: #008cba;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo de Escudería" style="width: 100px; margin-bottom: 20px;">
+        <h1>¡Bienvenido a {{ escuderia_nombre }}!</h1>
+
+        <div class="info">
+            <strong>Fecha de Inicio:</strong> {{ fecha_inicio }}<br>
+            <strong>Escudería:</strong> {{ escuderia_nombre }}
+        </div>
+
+        <p>
+            La directiva te ha contratado como el nuevo Director de Equipo de **{{ escuderia_nombre }}**. 
+            Acabas de finalizar la pretemporada y, aunque los resultados iniciales no han sido los esperados (terminasteis en la posición 15 en la carrera de prueba), 
+            la junta confía en tu visión estratégica para relanzar al equipo a la cima.
+        </p>
+        <p>
+            Tu misión comienza ahora. Tienes hasta el 1 de Abril de 2026 para mejorar el rendimiento de los componentes del coche con un presupuesto limitado.
+        </p>
+
+        <form method="POST">
+            <label for="director_name" style="text-align: left; font-weight: bold;">
+                Introduce tu nombre de Director:
+            </label>
+            <input type="text" id="director_name" name="director_name" required placeholder="Ej: Adrian Newey o Enzo Ferrari">
+
+            <button type="submit">
+                COMENZAR LA GESTIÓN
+            </button>
+        </form>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <ul class="flashes" style="list-style: none; padding: 10px; background: #ffdddd; border: 1px solid #ffaaaa; margin-top: 15px; color: #cc0000; text-align: left;">
+                    {% for message in messages %}
+                        <li>{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+    </div>
+</body>
+</html>

@@ -1,6 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, session, g
 import sqlite_utils
 import uuid
+import time # Necesario para la lógica de tiempo real (Tarea 3)
 import os
 
 # 1. Inicialización de la aplicación y Clave Secreta
@@ -81,17 +82,25 @@ def index():
     db = get_db()
     player_id = session['player_id']
 
+    if not player_id or not db["jugadores"].get(player_id):
+        # Si no hay jugador, redirigir a la pantalla de bienvenida/configuración
+        return redirect(url_for('bienvenida'))
+
     player_state = db["jugadores"].get(player_id) 
 
-    componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
+    # --- Lógica de cálculo de tiempo (Se usará en Tarea 3 y 4) ---
+    dia_actual = player_state['dia']
 
-    # AÑADIR player_state completo aquí
+    componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
+    proyectos = list(db["proyectos"].rows_where("jugador_id = ?", [player_id]))
+
+    # Renderizar la página principal con el estado del jugador y datos.
     return render_template('index.html', 
-                           dia_actual=player_state['dia'], 
-                           dinero_actual=player_state['dinero'], 
-                           proyecto_activo=player_state['proyecto_activo'],
-                           componentes=componentes,
-                           player_state=player_state) # <--- ¡ESTO ES LO NUEVO Y CLAVE!
+                           player_state=player_state, 
+                           dia_actual=dia_actual,
+                           componentes=componentes, 
+                           proyectos=proyectos,
+                           escuderia_nombre="Phoenix Racing") # <-- Escudería fija
 
 # 7. Ruta para avanzar el tiempo (y guardar)
 @app.route('/avanzar')
@@ -212,5 +221,54 @@ def carrera():
                         player_state=player_state, # <--- ¡CLAVE! Pasar el diccionario completo
                         dia_actual=player_state['dia']) # <--- Y el día actual por si la plantilla lo necesita
 # Esta línea es solo para pruebas locales (Codespaces)
+
+# 9. Nueva ruta de Bienvenida y Configuración
+@app.route('/bienvenida', methods=['GET', 'POST'])
+def bienvenida():
+    db = get_db()
+    player_id = session.get('player_id')
+
+    # Si ya hay un jugador, redirigir a index
+    if player_id and db["jugadores"].get(player_id):
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        director_name = request.form.get('director_name')
+        if not director_name:
+            flash("Por favor, introduce tu nombre de director.")
+            return render_template('bienvenida.html', escuderia_nombre="Phoenix Racing", fecha_inicio="1 de Diciembre de 2025")
+
+        # Crear un nuevo ID de jugador
+        new_player_id = str(uuid.uuid4()) 
+        session['player_id'] = new_player_id
+
+        # 1. Crear el jugador en la BD (incluyendo director_name y start_time_rt para el futuro)
+        db["jugadores"].insert({
+            "id": new_player_id,
+            "dinero": 100000,
+            "dia": 1,
+            "director_name": director_name, # <-- Nuevo campo (Tarea 1)
+            "start_time_rt": time.time() # Hora de inicio real (Tarea 3)
+        }, pk="id")
+
+        # 2. Inicializar los componentes (CÓDIGO DEL PASO 37)
+        db["componentes"].insert_all([
+            {"jugador_id": new_player_id, "nombre": "Chasis", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
+            {"jugador_id": new_player_id, "nombre": "Motor", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
+            {"jugador_id": new_player_id, "nombre": "Alerón Delantero", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
+            {"jugador_id": new_player_id, "nombre": "Alerón Trasero", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
+        ])
+
+        db.commit()
+
+        flash(f"¡Bienvenido, Director {director_name}! ¡Es hora de relanzar Phoenix Racing!")
+        return redirect(url_for('index'))
+
+    # GET request: Mostrar la página de bienvenida
+    return render_template('bienvenida.html', 
+                           escuderia_nombre="Phoenix Racing",
+                           fecha_inicio="1 de Diciembre de 2025")
+
+
 if __name__ == '__main__':
     app.run(debug=True)
