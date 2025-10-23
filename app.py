@@ -39,7 +39,7 @@ def check_player_id():
         db["jugadores"].create({"id": str, "dia": int}, pk="id")
 
     # Cargamos o creamos el estado inicial del jugador
-    player_state = db["jugadores"].get(session['player_id'], default={'id': session['player_id'], 'dia': 0})
+    player_state = db["jugadores"].lookup(session['player_id'], default={'id': session['player_id'], 'dia': 0})
     # Si el día es 0, es un jugador nuevo (Día 1 de inicio)
     if player_state['dia'] == 0:
         db["jugadores"].insert({"id": session['player_id'], "dia": 1}, pk="id", replace=True)
