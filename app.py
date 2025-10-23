@@ -160,6 +160,56 @@ def iniciar_rd(nombre_componente):
 
     return redirect(url_for('index'))
 
+# 9. Ruta para simular una carrera
+@app.route('/carrera')
+def carrera():
+    db = get_db()
+    player_id = session['player_id']
+    player_state = db["jugadores"].get(player_id)
+
+    # 1. Comprobación: Solo si es el Día 10
+    if player_state['dia'] != 10:
+        flash("La carrera solo puede simularse el Día 10.")
+        return redirect(url_for('index'))
+
+    # 2. Cargar el Rendimiento del Jugador
+    componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
+    rendimiento_total = 0
+
+    for comp in componentes:
+        # Fórmula simple: Rendimiento Base + (Nivel * 0.1)
+        rendimiento_total += comp['rendimiento_base'] + (comp['nivel_rd'] * 0.1)
+
+    # 3. Simulación del Resultado (Ejemplo Simple)
+    # El rendimiento base es 100. Los componentes lo mejoran.
+
+    # Rendimiento Total / Número de Componentes (para sacar un promedio de mejora)
+    factor_mejora = rendimiento_total / len(componentes)
+
+    # El resultado se basa en el rendimiento total, donde un resultado más bajo es mejor (posición)
+    # Una simulación simple: Posición inicial 15 - (Factor de Mejora * 2)
+    posicion_simulada = max(1, round(15 - (factor_mejora * 2))) 
+
+    # 4. Asignar Recompensa y Guardar Resultados
+    premio_dinero = 0
+
+    if posicion_simulada <= 5:
+        premio_dinero = 5000 + (6 - posicion_simulada) * 1000 # Más dinero si queda mejor
+    elif posicion_simulada <= 10:
+        premio_dinero = 1000
+
+    # 5. Actualizar estado del jugador (dinero, y avanzar al siguiente día/fase)
+    db["jugadores"].update(player_id, {
+        "dinero": player_state['dinero'] + premio_dinero,
+        "dia": player_state['dia'] + 1 # Avanzamos el día al finalizar
+    })
+
+    # 6. Mostrar resultado de la carrera (devolvemos el resultado en lugar de redirigir)
+    return render_template('carrera.html', 
+                           posicion=posicion_simulada, 
+                           premio=premio_dinero, 
+                           rendimiento=round(factor_mejora, 2))
+
 # Esta línea es solo para pruebas locales (Codespaces)
 if __name__ == '__main__':
     app.run(debug=True)

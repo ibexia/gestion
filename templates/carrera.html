@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Resultados de la Carrera</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; text-align: center; }
+        h1 { color: #cc0000; }
+        .carrera-resultado { border: 2px solid #008cba; padding: 30px; margin: 20px auto; max-width: 500px; }
+        .posicion { font-size: 3em; font-weight: bold; color: #008cba; }
+        .premio { font-size: 1.2em; margin-top: 15px; color: #4CAF50; }
+        .boton { background-color: #008cba; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; border: none; cursor: pointer; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1>¡RESULTADOS OFICIALES DE LA CARRERA!</h1>
+
+    <div class="carrera-resultado">
+        <p>El factor de rendimiento total de tu coche fue: **{{ rendimiento }}**</p>
+        <p>Tras una simulación intensa, tu equipo termina en...</p>
+        <p class="posicion">POSICIÓN {{ posicion }}</p>
+
+        {% if posicion <= 10 %}
+            <p class="premio">¡Felicidades, has entrado en los puntos! Ganas **{{ premio | int }} €**.</p>
+        {% else %}
+            <p class="premio">No has entrado en los puntos, pero ¡hay que seguir investigando! Ganas **{{ premio | int }} €**.</p>
+        {% endif %}
+    </div>
+
+    <a href="/" class="boton">Volver a la Gestión (Día {{ player_state.dia_actual }})</a>
+</body>
+</html>

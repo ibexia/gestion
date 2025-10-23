@@ -34,7 +34,11 @@
     <div class="dia">
         Día Actual de Pretemporada: <strong>{{ dia_actual }}</strong>
         <br><br>
-        <a href="/avanzar" class="boton">Avanzar 1 Día</a>
+        {% if dia_actual == 10 %}
+            <a href="/carrera" class="boton" style="background-color: #cc0000;">SIMULAR CARRERA (DÍA DE LA VERDAD)</a>
+        {% else %}
+            <a href="/avanzar" class="boton">Avanzar 1 Día</a>
+        {% endif %}
     </div>
 
     <h2>Componentes del Coche (Investigación y Desarrollo)</h2>
