@@ -6,7 +6,7 @@ import os
 # 1. Inicialización de la aplicación y Clave Secreta
 app = Flask(__name__)
 # Usa una clave secreta fuerte aquí, como se indicó en el Paso 18
-app.secret_key = 'TU_CLAVE_SECRETA_LARGA_AQUI' 
+app.secret_key = 'MiEquipoF1EsMejorQueElDeFerrariEn2027ConPocoDinero!' 
 
 # 2. Configuración de la Base de Datos (SQLite)
 DATABASE_FILE = 'f1_gestion.db'
