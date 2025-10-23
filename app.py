@@ -1,12 +1,12 @@
-from flask import Flask, render_template, redirect, url_for, session, g
+from flask import Flask, render_template, redirect, url_for, session, g, flash, request
+from datetime import datetime, timedelta 
 import sqlite_utils
 import uuid
-import time # Necesario para la lógica de tiempo real (Tarea 3)
+import time # Necesario para la lógica de tiempo real
 import os
 
 # 1. Inicialización de la aplicación y Clave Secreta
 app = Flask(__name__)
-# Usa una clave secreta fuerte aquí, como se indicó en el Paso 18
 app.secret_key = 'MiEquipoF1EsMejorQueElDeFerrariEn2027ConPocoDinero!' 
 
 # 2. Configuración de la Base de Datos (SQLite)
@@ -25,117 +25,70 @@ def close_db(e=None):
     if db is not None:
         db.close()
 
-# 5. Lógica de Pre-petición: Gestiona el ID de Sesión (jugador)
-@app.before_request
-def check_player_id():
-    # 5.1. Asignar ID de Sesión
-    if 'player_id' not in session:
-        session['player_id'] = str(uuid.uuid4())
-
-    db = get_db()
-    player_id = session['player_id']
-
-    # 5.2. Asegurar que la tabla 'jugadores' existe
-    if not db["jugadores"].exists():
-        db["jugadores"].create({
-            "id": str, 
-            "dia": int,
-            "dinero": int, # <--- ¡Añadir!
-            "proyecto_activo": str, # <--- ¡Añadir!
-            "dia_finalizacion_rd": int # <--- ¡Añadir!
-        }, pk="id")
-
-    # 5.3. Insertar/Ignorar jugador (para garantizar que existe y darle dinero inicial)
-    db["jugadores"].insert({
-        "id": player_id,
-        "dia": 1,
-        "dinero": 10000, # <-- DINERO INICIAL
-        "proyecto_activo": None, # <-- Proyecto en marcha
-        "dia_finalizacion_rd": None # <-- Día en que termina el proyecto
-    }, pk="id", ignore=True, alter=True) # <-- ¡ALTER=TRUE AÑADIDO AQUÍ!
-
-    # 5.4. Asegurar que la tabla 'componentes' existe y está inicializada
-    if not db["componentes"].exists():
-        db["componentes"].create({
-            "jugador_id": str,
-            "nombre": str,
-            "nivel_rd": int,
-            "coste": int,
-            "rendimiento_base": float
-        }, pk=("jugador_id", "nombre")) # Clave primaria compuesta por Jugador + Nombre
-
-    # 5.5. Inicializar componentes solo si el jugador no tiene ninguno aún
-    if list(db["componentes"].rows_where("jugador_id = ?", [player_id])) == []:
-         # Componentes base de F1
-        componentes_iniciales = [
-            {"jugador_id": player_id, "nombre": "Motor", "nivel_rd": 1, "coste": 500, "rendimiento_base": 1.0},
-            {"jugador_id": player_id, "nombre": "Alerón Delantero", "nivel_rd": 1, "coste": 200, "rendimiento_base": 0.8},
-            {"jugador_id": player_id, "nombre": "Chasis", "nivel_rd": 1, "coste": 700, "rendimiento_base": 1.5},
-        ]
-        # insert_all asegura que se añaden los tres componentes de una vez
-        db["componentes"].insert_all(componentes_iniciales, pk=("jugador_id", "nombre"), replace=True)
+# --- CONSTANTES GLOBALES DE TIEMPO (¡AÑADIDO!) ---
+START_DATE = datetime(2025, 12, 1, 0, 0, 0) # 1 de Diciembre de 2025, 00:00:00
+SEASON_START_DATE = datetime(2026, 4, 1, 0, 0, 0) # 1 de Abril de 2026
+# ----------------------------------------------------
 
 
-# 6. Ruta principal: Muestra el estado del jugador actual
+# 6. Ruta principal: Muestra el estado del jugador actual con lógica RT
 @app.route('/')
 def index():
     db = get_db()
-    player_id = session['player_id']
+    player_id = session.get('player_id')
 
-    if not player_id or not db["jugadores"].get(player_id):
-        # Si no hay jugador, redirigir a la pantalla de bienvenida/configuración
+    # CLAVE: Si no hay jugador, redirige a Bienvenida
+    if not player_id or not db["jugadores"].exists() or not db["jugadores"].get(player_id):
         return redirect(url_for('bienvenida'))
 
     player_state = db["jugadores"].get(player_id) 
 
-    # --- Lógica de cálculo de tiempo (Se usará en Tarea 3 y 4) ---
-    dia_actual = player_state['dia']
+    # --- Lógica de cálculo de tiempo REAL-TIME (4x) ---
+    real_time_elapsed = time.time() - player_state['start_time_rt']
+    game_time_elapsed = real_time_elapsed * 4 
+    current_game_date = START_DATE + timedelta(seconds=game_time_elapsed)
+    game_day_number = (current_game_date - START_DATE).days + 1
+    
+    # Actualizar el 'dia' en la base de datos (clave para proyectos y carrera)
+    if player_state['dia'] != game_day_number:
+        db["jugadores"].update(player_id, {"dia": game_day_number})
+        player_state['dia'] = game_day_number 
+        db.commit()
+        
+    # --- Lógica de Hitos Importantes (TAREA 5) ---
+    days_to_season = max(0, (SEASON_START_DATE - current_game_date).days)
+    proxima_carrera = "Inicio de Temporada"
+    fecha_proxima_carrera = SEASON_START_DATE.strftime("%d %b %Y")
+
+    if current_game_date >= SEASON_START_DATE:
+        days_since_season_start = (current_game_date - SEASON_START_DATE).days
+        races_completed = days_since_season_start // 14
+        next_race_date = SEASON_START_DATE + timedelta(days=(races_completed + 1) * 14)
+        proxima_carrera = "Carrera (TBD)" 
+        fecha_proxima_carrera = next_race_date.strftime("%d %b %Y")
+    
+    # ---------------------------------------------
 
     componentes = list(db["componentes"].rows_where("jugador_id = ?", [player_id]))
-    proyectos = list(db["proyectos"].rows_where("jugador_id = ?", [player_id]))
+    
+    # Manejar la posible inexistencia de la tabla 'proyectos'
+    proyectos = list(db["proyectos"].rows_where("jugador_id = ?", [player_id])) if db.get("proyectos", {}).exists() else []
 
-    # Renderizar la página principal con el estado del jugador y datos.
+
+    # Renderizar la página principal con los nuevos datos de tiempo.
     return render_template('index.html', 
-                           player_state=player_state, 
-                           dia_actual=dia_actual,
-                           componentes=componentes, 
-                           proyectos=proyectos,
-                           escuderia_nombre="Phoenix Racing") # <-- Escudería fija
+                            player_state=player_state,
+                            componentes=componentes, 
+                            proyectos=proyectos,
+                            start_timestamp=player_state['start_time_rt'], # Usado por JS
+                            current_game_date=current_game_date.strftime("%d %B %Y"),
+                            current_game_time=current_game_date.strftime("%H:%M:%S"),
+                            game_day_number=game_day_number,
+                            days_to_season=days_to_season,
+                            proxima_carrera=proxima_carrera,
+                            fecha_proxima_carrera=fecha_proxima_carrera,
+                            escuderia_nombre="Phoenix Racing")
 
-# 7. Ruta para avanzar el tiempo (y guardar)
-@app.route('/avanzar')
-def avanzar_dia():
-    db = get_db()
-    player_id = session['player_id']
-
-    # 1. Obtener estado actual
-    player_state = db["jugadores"].get(player_id)
-    nuevo_dia = player_state['dia'] + 1
-
-    # 2. Comprobar si hay un proyecto activo y si ha finalizado
-    proyecto_activo = player_state.get('proyecto_activo') # Usa .get() para evitar KeyError
-    dia_finalizacion = player_state.get('dia_finalizacion_rd')
-
-    if proyecto_activo and dia_finalizacion is not None and nuevo_dia >= dia_finalizacion:
-        # ¡PROYECTO FINALIZADO!
-
-        # 2.1. Subir nivel del componente
-        componente = db["componentes"].get((player_id, proyecto_activo))
-        db["componentes"].update((player_id, proyecto_activo), {
-            "nivel_rd": componente['nivel_rd'] + 1,
-        })
-
-        # 2.2. Limpiar variables del proyecto
-        db["jugadores"].update(player_id, {
-            "dia": nuevo_dia,
-            "proyecto_activo": None,
-            "dia_finalizacion_rd": None
-        })
-    else:
-        # 3. Solo avanzamos el día (el proyecto sigue en marcha o no hay proyecto)
-        db["jugadores"].update(player_id, {"dia": nuevo_dia})
-
-    return redirect(url_for('index'))
 
 # 8. Ruta para iniciar un proyecto de I+D
 @app.route('/iniciar_rd/<nombre_componente>')
@@ -151,8 +104,10 @@ def iniciar_rd(nombre_componente):
         return redirect(url_for('index')) 
 
     # 2. Obtener datos del componente
+    # IMPORTANTE: Asumo que en la tabla 'componentes' ya existe 'coste' o lo cambiaste a 'coste_mejora'
     componente = db["componentes"].get((player_id, nombre_componente))
-    coste_rd = componente['coste'] * componente['nivel_rd'] # Coste aumenta con el nivel
+    # Usamos coste_mejora que definiste en /bienvenida
+    coste_rd = componente['coste_mejora'] * componente['nivel_rd'] 
 
     # 3. Comprobación de fondos
     if player_state['dinero'] >= coste_rd:
@@ -177,6 +132,7 @@ def carrera():
     player_state = db["jugadores"].get(player_id)
 
     # 1. Comprobación: Solo si es el Día 10
+    # NOTA: Esto se cambiará más adelante para usar la lógica de tiempo real de la Tarea 6
     if player_state['dia'] != 10:
         flash("La carrera solo puede simularse el Día 10.")
         return redirect(url_for('index'))
@@ -190,13 +146,8 @@ def carrera():
         rendimiento_total += comp['rendimiento_base'] + (comp['nivel_rd'] * 0.1)
 
     # 3. Simulación del Resultado (Ejemplo Simple)
-    # El rendimiento base es 100. Los componentes lo mejoran.
-
-    # Rendimiento Total / Número de Componentes (para sacar un promedio de mejora)
     factor_mejora = rendimiento_total / len(componentes)
 
-    # El resultado se basa en el rendimiento total, donde un resultado más bajo es mejor (posición)
-    # Una simulación simple: Posición inicial 15 - (Factor de Mejora * 2)
     posicion_simulada = max(1, round(15 - (factor_mejora * 2))) 
 
     # 4. Asignar Recompensa y Guardar Resultados
@@ -207,20 +158,19 @@ def carrera():
     elif posicion_simulada <= 10:
         premio_dinero = 1000
 
-    # 5. Actualizar estado del jugador (dinero, y avanzar al siguiente día/fase)
+    # 5. Actualizar estado del jugador (solo dinero, el día se actualiza automáticamente)
     db["jugadores"].update(player_id, {
         "dinero": player_state['dinero'] + premio_dinero,
-        "dia": player_state['dia'] + 1 # <--- ¡Esto es el problema! Pasa del día 10 al 11.
+        # Ya NO se avanza el día aquí. El tiempo lo maneja la ruta '/'
     })
 
     # 6. Mostrar resultado de la carrera
     return render_template('carrera.html', 
-                        posicion=posicion_simulada, 
-                        premio=premio_dinero, 
-                        rendimiento=round(factor_mejora, 2),
-                        player_state=player_state, # <--- ¡CLAVE! Pasar el diccionario completo
-                        dia_actual=player_state['dia']) # <--- Y el día actual por si la plantilla lo necesita
-# Esta línea es solo para pruebas locales (Codespaces)
+                            posicion=posicion_simulada, 
+                            premio=premio_dinero, 
+                            rendimiento=round(factor_mejora, 2),
+                            player_state=player_state, 
+                            dia_actual=player_state['dia']) 
 
 # 9. Nueva ruta de Bienvenida y Configuración
 @app.route('/bienvenida', methods=['GET', 'POST'])
@@ -228,7 +178,19 @@ def bienvenida():
     db = get_db()
     player_id = session.get('player_id')
 
-    # Si ya hay un jugador, redirigir a index
+    # 1. Asegurar que la tabla 'jugadores' existe ANTES de hacer .get()
+    if not db["jugadores"].exists():
+        db["jugadores"].create({
+            "id": str, 
+            "dia": int,
+            "dinero": int,
+            "director_name": str, # <-- Nuevo campo
+            "start_time_rt": float, # <-- Nuevo campo
+            "proyecto_activo": str, 
+            "dia_finalizacion_rd": int
+        }, pk="id")
+        
+    # Si ya hay un jugador VÁLIDO, redirigir a index
     if player_id and db["jugadores"].get(player_id):
         return redirect(url_for('index'))
 
@@ -242,22 +204,32 @@ def bienvenida():
         new_player_id = str(uuid.uuid4()) 
         session['player_id'] = new_player_id
 
-        # 1. Crear el jugador en la BD (incluyendo director_name y start_time_rt para el futuro)
+        # 2. Crear el jugador en la BD (con todos los nuevos campos)
         db["jugadores"].insert({
             "id": new_player_id,
             "dinero": 100000,
             "dia": 1,
-            "director_name": director_name, # <-- Nuevo campo (Tarea 1)
-            "start_time_rt": time.time() # Hora de inicio real (Tarea 3)
+            "director_name": director_name,
+            "start_time_rt": time.time(), # Hora de inicio real
+            "proyecto_activo": None, 
+            "dia_finalizacion_rd": None 
         }, pk="id")
 
-        # 2. Inicializar los componentes (CÓDIGO DEL PASO 37)
+        # 3. Inicializar los componentes (CÓDIGO DEL PASO 37)
+        db["componentes"].create({
+            "jugador_id": str,
+            "nombre": str,
+            "nivel_rd": int,
+            "coste_mejora": int,
+            "rendimiento_base": float
+        }, pk=("jugador_id", "nombre"), ignore=True)
+        
         db["componentes"].insert_all([
             {"jugador_id": new_player_id, "nombre": "Chasis", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
             {"jugador_id": new_player_id, "nombre": "Motor", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
             {"jugador_id": new_player_id, "nombre": "Alerón Delantero", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
             {"jugador_id": new_player_id, "nombre": "Alerón Trasero", "nivel_rd": 1, "rendimiento_base": 1.5, "coste_mejora": 10000},
-        ])
+        ], replace=True)
 
         db.commit()
 
@@ -266,25 +238,19 @@ def bienvenida():
 
     # GET request: Mostrar la página de bienvenida
     return render_template('bienvenida.html', 
-                           escuderia_nombre="Phoenix Racing",
-                           fecha_inicio="1 de Diciembre de 2025")
+                            escuderia_nombre="Phoenix Racing",
+                            fecha_inicio="1 de Diciembre de 2025")
 
-# 10. Nueva ruta para resetear la sesión y borrar la DB temporalmente
+# 10. Nueva ruta para resetear la sesión (Solo borra la sesión)
 @app.route('/reset')
 def reset_session():
+    # Asegúrate que estas importaciones no se repitan si ya están al inicio del archivo
     from flask import session, flash, redirect, url_for 
-    db = get_db()
-
-    # --- NUEVOS PASOS AÑADIDOS ---
-    if db["jugadores"].exists():
-        db["jugadores"].drop()
-
+    
     session.pop('player_id', None)
-    # -----------------------------
-
-    flash("Sesión de jugador y base de datos reseteadas. Comienza un nuevo juego.")
-    return redirect(url_for('bienvenida'))                         
-
+    
+    flash("Sesión de jugador reseteada. Comienza un nuevo juego.")
+    return redirect(url_for('bienvenida')) 
 
 if __name__ == '__main__':
     app.run(debug=True)
