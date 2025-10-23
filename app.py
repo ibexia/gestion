@@ -28,28 +28,29 @@ def close_db(e=None):
 @app.before_request
 def check_player_id():
     # Si el jugador no tiene un ID de sesión, se lo asignamos.
-    # Este ID es único para el navegador del usuario y dura mientras no borre cookies.
     if 'player_id' not in session:
         session['player_id'] = str(uuid.uuid4())
 
-    # Inicializamos el jugador en la base de datos si es nuevo
     db = get_db()
-    # Aseguramos que la tabla 'jugadores' existe y tiene los campos 'id' y 'dia'
+
+    # 1. Aseguramos que la tabla 'jugadores' existe
     if not db["jugadores"].exists():
         db["jugadores"].create({"id": str, "dia": int}, pk="id")
 
-    # Cargamos o creamos el estado inicial del jugador
-    player_state = db["jugadores"].lookup(session['player_id'], defaults={'id': session['player_id'], 'dia': 0})
-    # Si el día es 0, es un jugador nuevo (Día 1 de inicio)
-    if player_state['dia'] == 0:
-        db["jugadores"].insert({"id": session['player_id'], "dia": 1}, pk="id", replace=True)
+    # 2. Intentamos insertar el jugador en Día 1.
+    # Si el jugador ya existe (por su ID), la inserción es IGNORADA.
+    db["jugadores"].insert({
+        "id": session['player_id'],
+        "dia": 1
+    }, pk="id", ignore=True)
 
 
 # 6. Ruta principal: Muestra el estado del jugador actual
 @app.route('/')
 def index():
     db = get_db()
-    player_state = db["jugadores"].get(session['player_id'])
+    # Usamos get() aquí, pues la función before_request garantiza que el ID ya existe
+    player_state = db["jugadores"].get(session['player_id']) 
 
     # Pasamos el día individual del jugador a la plantilla HTML
     return render_template('index.html', dia_actual=player_state['dia'])
